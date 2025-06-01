@@ -1,1 +1,158 @@
-
+import pandas as pd
+import subprocess
+import re
+from typing import Optional, Union, List
+import datetime
+import time
+MENTOR_NAME = "Dhawaleswar Rao"
+INSTITUTION_NAME = "Centurion University of Technology and Management" def load_data(file_path:str) -> pd.DataFrame:
+try:
+df = pd.read_excel(file_path, sheet_name="Sheet1")
+df.columns = df.columns.str.strip().str.replace("\n", " ")
+df["Father Phone Number"] = df["Father Phone Number"].apply(standardize_phone_number)
+df["Student Phone Number"] = df["Student Phone Number"].apply(standardize_phone_number)
+df["Mentor Phone Number"] = df["Mentor Phone Number"].apply(standardize_phone_number)
+return df
+except Exception as e:
+print(f"Error loading data: {str(e)}")
+raise
+def standardize_phone_number(phone: Union[str, int, float]) -> str:
+phone_str = str(phone)
+if '.' in phone_str:
+phone_str = phone_str.split('.')[0]
+digits_only = ''.join(re.findall(r'\d', phone_str))
+return digits_only
+def validate_phone_number(phone: str) -> tuple[bool, str]:
+if not phone.isdigit():
+return False, "Error: No alphabets or symbols allowed in phone number."
+if len(phone) != 10:
+return False, f"Error: You have entered {len(phone)} digits. Phone number must be exactly 10
+digits."
+return True, "" def send_sms_via_adb(phone_number: str, message: str) -> None:
+try:
+adb_command =
+[ "adb", "shell", "am", "start", "-a", "android.intent.action.SENDTO", "-d", f"sms:{phone_number}", "--es", "sms_body", f'"{message}"', "--ez", "exit_on_sent", "true", ]
+print(f"Executing ADB command: {' '.join(adb_command)}")
+subprocess.run(adb_command, check=True)
+print(f"SMS sentsuccessfully to {phone_number}")
+except subprocess.CalledProcessError as e:
+print(f"Error sending SMS via ADB: {e}")
+print("Make sure ADB is installed, your device is connected, and USB debugging is enabled.")
+except FileNotFoundError:
+print("Error: ADB command not found. Please ensure ADB is installed and in your system's
+PATH.")
+def main():
+try:
+file_path = "C:\\Users\\91944\\Downloads\\Book1.xlsx"
+print("\nLoading student data...")
+df = load_data(file_path)
+print(f"Loaded {len(df)} student records.")
+print(f"Mentor: {MENTOR_NAME}")
+print(f"Institution: {INSTITUTION_NAME}")
+while True:
+choice = input("\nDo you want to send SMS to:\n1. All students\n2. An individual
+student\nEnter your choice (1 or 2): ").strip()
+if choice in ['1', '2']:
+break
+else:
+print("Invalid choice. Please enter 1 for All or 2 for Individual.")
+now = datetime.datetime.now()
+current_date_time = now.strftime("%Y-%m-%d %H:%M:%S")
+if choice == '1':
+confirmation = input("Are you sure you want to send SMS to ALL fathers? (yes/no): ").strip().lower()
+if confirmation == 'yes':
+print("\n===== Sending Student Information via SMS to All Fathers =====")
+for index, student in df.iterrows():
+father_phone_number = student.get('Father Phone Number')
+mentor_name = student.get('Mentor Name', MENTOR_NAME)
+mentor_phone_number = student.get('Mentor Phone Number')
+if father_phone_number:
+is_valid, error_message = validate_phone_number(father_phone_number)
+if is_valid:
+student_name = student.get('Student Name', 'Not available')
+student_program = student.get('Student Program', 'Not available')
+student_branch = student.get('Student Branch', 'Not available')
+registration_number = str(student.get('Registration Number', 'Not available'))
+cgpa = str(student.get('CGPA', 'Not available'))
+message = (
+f"Dear Sir/Madam, Information regarding your child, *{student_name}*,\n"
+f"Program: *{student_program}*,\n"
+f"Branch: *{student_branch}*,\n"
+f"Registration Number: *{registration_number}*,\n"
+f"CGPA: *{cgpa}*\n"
+f"Mentor Name: *{mentor_name}*"
+)
+if mentor_phone_number:
+is_valid_mentor_phone, error_mentor_phone =
+validate_phone_number(mentor_phone_number)
+if is_valid_mentor_phone:
+message += f"\nMentor Phone Number: *{mentor_phone_number}*" else:
+print(f"Invalid Mentor's Phone Number found for {student_name}:
+{mentor_phone_number} - {error_mentor_phone}")
+else:
+print(f"Mentor's Phone Number not found for {student_name}.")
+message += f"\nInstitution Name: *{INSTITUTION_NAME}*\n" message += f"Date & Time: {current_date_time}" print(f"\nSending SMS to Father of {student_name} ({father_phone_number}):")
+print("-" * 30)
+print(message)
+send_sms_via_adb(father_phone_number, message)
+time.sleep(2)
+else:
+print(f"Invalid Father's Phone Number found for {student.get('Student Name',
+'Unknown Student')}: {father_phone_number} - {error_message}")
+else:
+print(f"Father's phone number not found for {student.get('Student Name', 'Unknown
+Student')}.")
+print("\nFinished sending student information via SMS to all fathers.")
+else:
+print("Bulk SMS sending cancelled.")
+elif choice == '2':
+student_identifier = input("Enter the Student Name to send information to: ").strip()
+found_student = False
+for index, student in df.iterrows():
+ifstudent['Student Name'].strip().lower() == student_identifier.lower():
+found_student = True
+father_phone_number = student.get('Father Phone Number')
+mentor_name = student.get('Mentor Name', MENTOR_NAME)
+mentor_phone_number = student.get('Mentor Phone Number')
+if father_phone_number:
+is_valid, error_message = validate_phone_number(father_phone_number)
+if is_valid:
+student_name = student.get('Student Name', 'Not available')
+student_program = student.get('Student Program', 'Not available')
+student_branch = student.get('Student Branch', 'Not available')
+registration_number = str(student.get('Registration Number', 'Not available'))
+cgpa = str(student.get('CGPA', 'Not available'))
+message = (
+f"Dear Sir/Madam, Information regarding your child, *{student_name}*,\n"
+f"Program: *{student_program}*,\n"
+f"Branch: *{student_branch}*,\n"
+f"Registration Number: *{registration_number}*,\n"
+f"CGPA: *{cgpa}*\n"
+f"Mentor Name: *{mentor_name}*"
+)
+if mentor_phone_number:
+is_valid_mentor_phone, error_mentor_phone =
+validate_phone_number(mentor_phone_number)
+if is_valid_mentor_phone:
+message += f"\nMentor Phone Number: *{mentor_phone_number}*" else:
+print(f"Invalid Mentor's Phone Number found for {student_name}:
+{mentor_phone_number} - {error_mentor_phone}")
+else:
+print(f"Mentor's Phone Number not found for {student_name}.")
+message += f"\nInstitution Name: *{INSTITUTION_NAME}*\n" message += f"Date & Time: {current_date_time}" print(f"\nSending SMS to Father of {student_name} ({father_phone_number}):")
+print("-" * 30)
+print(message)
+send_sms_via_adb(father_phone_number, message)
+print("SMS sent successfully.")
+else:
+print(f"Invalid Father's Phone Number found for {student_name}:
+{father_phone_number} - {error_message}")
+else:
+print(f"Father's phone number not found for {student_name}.")
+break
+if not found_student:
+print(f"Student with name '{student_identifier}' not found.")
+except Exception as e:
+print(f"An error occurred: {str(e)}")
+if name == " main ":
+main()
