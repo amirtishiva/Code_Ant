@@ -1,0 +1,189 @@
+import pandas as pd
+import subprocess
+import re
+from typing import Optional, Union, List
+import datetime
+INSTITUTION_NAME = "Centurion University of Technology and Management" def load_data(file_path: str) -> pd.DataFrame:
+try:
+df = pd.read_excel(file_path, sheet_name="Sheet1")
+df.columns = df.columns.str.strip().str.replace("\n", " ")
+df["Father Phone Number"] = df["Father Phone Number"].apply(standardize_phone_number)
+df["Student Phone Number"] = df["Student Phone Number"].apply(standardize_phone_number)
+df["Mentor Phone Number"] = df["Mentor Phone Number"].apply(standardize_phone_number)
+return df
+except Exception as e:
+print(f"Error loading data: {str(e)}")
+raise
+def standardize_phone_number(phone: Union[str, int, float]) -> str:
+phone_str = str(phone)
+if '.' in phone_str:
+phone_str = phone_str.split('.')[0]
+digits_only = ''.join(re.findall(r'\d', phone_str))
+return digits_only
+def validate_phone_number(phone: str) -> tuple[bool, str]:
+if not phone.isdigit():
+return False, "Error: No alphabets or symbols allowed in phone number."
+if len(phone) != 10:
+return False, f"Error: You have entered {len(phone)} digits. Phone number must be exactly 10
+digits."
+return True, "" def format_number_for_speech(number: str) -> str:
+enhanced = '. '.join(number)
+return enhanced
+def get_students_by_father_phone(df: pd.DataFrame, father_phone: str) -> List[pd.Series]:
+matching_students = df[df["Father Phone Number"] == father_phone]
+if len(matching_students) > 0:
+return [matching_students.iloc[i] for i in range(len(matching_students))]
+else:
+return
+def verify_student_by_phone(students: List[pd.Series], student_phone: str) -> Optional[pd.Series]:
+for student in students:
+if standardize_phone_number(student.get('Student Phone Number', '')) == student_phone:
+return student
+return None
+def get_performance_assessment(cgpa: float) -> str:
+if cgpa >= 9.0:
+return ("I am pleased to inform you that your child's academic performance has been exemplary. "
+"He consistently demonstrate exceptional understanding of course materials and "
+"are among our highest-performing students.His commitment to academic excellence "
+"is commendable.")
+elif cgpa >= 8.0:
+return ("I am happy to report that your child has maintained very good academic standing. "
+"He consistently perform well in assessments and demonstrate strong comprehension "
+"of the curriculum.His commitment to studies is evident in his results.")
+elif cgpa >= 7.0:
+return ("Your child has maintained a good academic standing. While he demonstrate solid "
+"understanding in most areas."
+"I believe with some additional focus,he could further enhance his academic performance.")
+elif cgpa >= 6.0:
+return ("Your child's academic performance has been satisfactory, though I believe they have "
+"potential for significant improvement. I would recommend additional academic support "
+"and possibly scheduled study sessions to help strengthen their understanding in key areas.")
+else:
+return ("I must bring to your attention that your child's academic performance requires
+immediate "
+"attention.His current grades indicate they are experiencing challenges with the curriculum. "
+"I strongly recommend we schedule a parent-teacher conference to discuss specific
+strategies "
+"for improvement and support options available through our institution.")
+def get_next_steps(cgpa: float) -> str:
+if cgpa >= 8.5:
+return ("Encourage your child to explore advanced placement opportunities and academic
+competitions. Research assistantships are also available for top students.")
+elif cgpa >= 7.0:
+return ("Maintaining current study methods is recommended. Peer tutoring and guidance from
+our academic advisors can help strengthen specific areas.")
+elif cgpa >= 6.0:
+return ("Consider utilizing our tutorial sessions and study skills workshops for better learning
+techniques and assessment preparation.")
+else:
+return ("Enrolling in our academic recovery program with intensive tutoring and mentoring is
+recommended. Please contact our department to discuss further.")
+def generate_formal_voice_message(student: pd.Series) -> str:
+try:
+student_name = student.get('Student Name', 'Not available')
+student_program = student.get('Student Program', 'Not available')
+student_branch = student.get('Student Branch', 'Not available')
+registration_number = str(student.get('Registration Number', 'Not available'))
+mentor_name = student.get('Mentor Name', 'Not available')
+mentor_phone_number = student.get('Mentor Phone Number', 'Not available')
+try:
+cgpa = float(student.get('CGPA', 0.0))
+except (ValueError, TypeError):
+cgpa = 0.0
+if registration_number.isdigit():
+formatted_reg_number = format_number_for_speech(registration_number)
+else:
+formatted_reg_number = registration_number
+performance_assessment = get_performance_assessment(cgpa)
+next_steps = get_next_steps(cgpa)
+formatted_mentor_phone = format_number_for_speech(mentor_phone_number)
+message = (
+f"Hello Sir,I hope that you are doing good. This is Professor {mentor_name} from the
+{student_branch} Department at {INSTITUTION_NAME}. "
+f"I want to share your child academic performance, {student_name}, who is enrolled in "
+f"our {student_program} program with registration number {formatted_reg_number}. "
+f"I would like to provide you with an update on {student_name}'s academic progress. "
+f"Currently, {student_name} has maintained a Cumulative Grade Point Average of {cgpa}. "
+f"{performance_assessment} "
+f"{next_steps} "
+f"If you have any questions or would like to discuss {student_name}'s academic development
+in more detail, "
+f"please feel free to contact me. My contact number is {formatted_mentor_phone}. "
+f"You can also contact our department office to schedule a consultation. "
+f"Thank you for your continued support of {student_name}'s educational journey."
+)
+return message
+except Exception as e:
+print(f"Error generating message: {str(e)}")
+return "Error generating student information message." defspeak_message(message: str) -> None:
+try:
+subprocess.run(["espeak", "-s", "130", "-g", "10", message])
+except FileNotFoundError:
+print("espeak is not installed. Using gTTS as a fallback.")
+try:
+from gtts import gTTS
+from IPython.display import Audio
+tts = gTTS(message, lang='en')
+tts.save("output.mp3")
+display(Audio("output.mp3", autoplay=True))
+except Exception as e:
+print(f"Error using gTTS: {str(e)}")
+print("Message (notspoken):", message)
+def main():
+try:
+file_path = "C:\\Users\\91944\\Downloads\\Book1.xlsx" print("\nLoading student data...")
+df = load_data(file_path)
+print(f"Loaded {len(df)} student records.")
+print("\n===== Academic Feedback Communication System =====")
+print(f"Institution: {INSTITUTION_NAME}")
+while True:
+print("\n" + "-" * 50)
+father_phone = input("Enter Father's Phone Number (or 'q' to quit): ")
+if father_phone.lower() == 'q':
+break
+is_valid, error_message = validate_phone_number(father_phone)
+if not is_valid:
+print(error_message)
+speak_message(error_message)
+continue
+matching_students = get_students_by_father_phone(df, father_phone)
+if not matching_students:
+error_message = f"No student found with Father's Phone Number:
+{format_number_for_speech(father_phone)}" print(error_message)
+speak_message(error_message)
+continue
+if len(matching_students) == 1:
+student = matching_students[0]
+else:
+print(f"\nFound {len(matching_students)} students with the same Father's Phone Number.")
+print("For verification, please enter the Student's Phone Number:")
+student_phone = input("Student's Phone Number: ")
+is_valid, error_message = validate_phone_number(student_phone)
+if not is_valid:
+print(error_message)
+speak_message(error_message)
+continue
+student = verify_student_by_phone(matching_students, student_phone)
+if student is None:
+error_message = "No matching student found with the provided Student Phone Number." print(error_message)
+speak_message(error_message)
+continue
+formal_message = generate_formal_voice_message(student)
+print("\nStudent Information Found:")
+print("-" * 50)
+for key, value in student.items():
+if key in ['Student Name', 'Student Phone Number', 'Student Program',
+'Student Branch', 'Registration Number', 'CGPA',
+'Father Phone Number', 'Mentor Name', 'Mentor Phone Number']:
+print(f"{key}: {value}")
+print("-" * 50)
+print("\nGenerated Academic Feedback Message:")
+print("-" * 50)
+print(formal_message)
+print("-" * 50)
+speak_message(formal_message)
+except Exception as e:
+print(f"An error occurred: {str(e)}")
+speak_message(f"An error occurred: {str(e)}")
+if name == " main ":
+main()
